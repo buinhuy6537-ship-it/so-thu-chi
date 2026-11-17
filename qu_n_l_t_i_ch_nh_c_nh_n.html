@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sổ Thu Chi & Tiết Kiệm Cá Nhân</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased selection:bg-teal-100 selection:text-teal-900 pb-12">
+
+    <!-- Thanh điều hướng trên cùng (Header) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+            <!-- Logo & Tên ứng dụng -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('overview')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-sky-600 flex items-center justify-center text-white shadow-md">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold bg-gradient-to-r from-teal-700 to-sky-700 bg-clip-text text-transparent">
+                        FinTrack VN
+                    </h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">Sổ Thu Chi & Tiết Kiệm Chi Tiết</p>
+                </div>
+            </div>
+
+            <!-- Bộ lọc Tháng/Năm & Công cụ -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <div class="flex items-center bg-slate-100 rounded-xl px-3 py-1.5 border border-slate-200">
+                    <i data-lucide="calendar" class="w-4 h-4 text-teal-600 mr-2"></i>
+                    <input type="month" id="monthFilter" class="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none cursor-pointer">
+                </div>
+
+                <button onclick="restoreSampleData()" title="Thêm dữ liệu mẫu" class="p-2 sm:px-3 sm:py-2 bg-teal-50 hover:bg-teal-100 text-teal-700 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1.5 border border-teal-200">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Dữ liệu mẫu</span>
+                </button>
+
+                <button onclick="exportToCSV()" title="Xuất file Excel (CSV)" class="p-2 sm:px-3 sm:py-2 bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1.5 border border-sky-200">
+                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+                    <span class="hidden md:inline">Xuất Excel</span>
+                </button>
+
+                <button onclick="openResetModal()" title="Xóa dữ liệu" class="p-2 sm:px-3 sm:py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs sm:text-sm font-medium transition flex items-center gap-1.5 border border-rose-200">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    <span class="hidden lg:inline">Xóa sổ</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Thanh Điều Hướng 4 Phân Mục Riêng Biệt (Tabs) -->
+        <div class="bg-slate-50/90 border-t border-slate-200/80">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <nav class="flex space-x-1 sm:space-x-2 overflow-x-auto py-2 no-scrollbar" aria-label="Tabs">
+                    <button id="tab-btn-overview" onclick="switchTab('overview')" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all bg-slate-800 text-white shadow-sm">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                        <span>1. Tổng quan</span>
+                    </button>
+                    <button id="tab-btn-income" onclick="switchTab('income')" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-slate-600 hover:bg-white hover:text-emerald-600">
+                        <i data-lucide="arrow-down-circle" class="w-4 h-4"></i>
+                        <span>2. Khoản Thu (Nhập vào)</span>
+                        <span id="badge-income" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-700">0</span>
+                    </button>
+                    <button id="tab-btn-expense" onclick="switchTab('expense')" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-slate-600 hover:bg-white hover:text-rose-600">
+                        <i data-lucide="arrow-up-circle" class="w-4 h-4"></i>
+                        <span>3. Khoản Chi (Chi tiêu)</span>
+                        <span id="badge-expense" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-rose-100 text-rose-700">0</span>
+                    </button>
+                    <button id="tab-btn-saving" onclick="switchTab('saving')" class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all text-slate-600 hover:bg-white hover:text-teal-600">
+                        <i data-lucide="piggy-bank" class="w-4 h-4"></i>
+                        <span>4. Tiết kiệm & Quỹ</span>
+                        <span id="badge-saving" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-teal-100 text-teal-700">0</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Nội dung chính theo từng Tab -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- =================================================================== -->
+        <!-- TAB 1: TỔNG QUAN (DASHBOARD)                                        -->
+        <!-- =================================================================== -->
+        <div id="tab-panel-overview" class="tab-panel space-y-6">
+            <!-- 4 Thẻ Tổng Kết Nhanh -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Tổng Thu Nhập -->
+                <div onclick="switchTab('income')" class="cursor-pointer bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-emerald-300 transition">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-slate-500">Tổng Khoản Thu</span>
+                        <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <i data-lucide="trending-up" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl font-bold text-emerald-600" id="ov-totalIncome">0 ₫</div>
+                    <p class="text-xs text-slate-400 mt-1 flex items-center justify-between">
+                        <span id="ov-incomeCount">0 giao dịch</span>
+                        <span class="text-emerald-600 font-medium">Chi tiết &rarr;</span>
+                    </p>
+                </div>
+
+                <!-- Tổng Chi Tiêu -->
+                <div onclick="switchTab('expense')" class="cursor-pointer bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-rose-300 transition">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-slate-500">Tổng Đã Chi Tiêu</span>
+                        <div class="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                            <i data-lucide="trending-down" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl font-bold text-rose-600" id="ov-totalExpense">0 ₫</div>
+                    <p class="text-xs text-slate-400 mt-1 flex items-center justify-between">
+                        <span id="ov-expenseCount">0 giao dịch</span>
+                        <span class="text-rose-600 font-medium">Chi tiết &rarr;</span>
+                    </p>
+                </div>
+
+                <!-- Tổng Tiết Kiệm -->
+                <div onclick="switchTab('saving')" class="cursor-pointer bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md hover:border-teal-300 transition">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-slate-500">Tổng Tiết Kiệm Thực Tế</span>
+                        <div class="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                            <i data-lucide="piggy-bank" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl font-bold text-teal-600" id="ov-totalSaving">0 ₫</div>
+                    <p class="text-xs text-slate-400 mt-1 flex items-center justify-between">
+                        <span id="ov-savingPercent">Đạt 0% mục tiêu</span>
+                        <span class="text-teal-600 font-medium">Chi tiết &rarr;</span>
+                    </p>
+                </div>
+
+                <!-- Số Dư Khả Dụng -->
+                <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl p-5 text-white shadow-md">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-sm font-medium text-slate-300">Số Dư Còn Lại</span>
+                        <div class="w-9 h-9 rounded-xl bg-white/10 text-sky-300 flex items-center justify-center">
+                            <i data-lucide="scale" class="w-5 h-5"></i>
+                        </div>
+                    </div>
+                    <div class="text-2xl font-bold text-white" id="ov-balance">0 ₫</div>
+                    <p class="text-xs text-slate-400 mt-1">Thu nhập - (Đã chi + Tiết kiệm)</p>
+                </div>
+            </section>
+
+            <!-- Lối tắt nhập nhanh vào từng mục -->
+            <section class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onclick="switchTab('income')" class="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm shadow-sm transition">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> + Ghi Khoản Thu Mới
+                </button>
+                <button onclick="switchTab('expense')" class="flex items-center justify-center gap-2 py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-semibold text-sm shadow-sm transition">
+                    <i data-lucide="minus-circle" class="w-4 h-4"></i> + Ghi Khoản Chi Tiêu
+                </button>
+                <button onclick="switchTab('saving')" class="flex items-center justify-center gap-2 py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold text-sm shadow-sm transition">
+                    <i data-lucide="piggy-bank" class="w-4 h-4"></i> + Trích Tiền Tiết Kiệm
+                </button>
+            </section>
+
+            <!-- Biểu Đồ Trực Quan -->
+            <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Biểu đồ tròn: Tỷ trọng chi tiêu -->
+                <div class="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm flex flex-col">
+                    <h3 class="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
+                        <i data-lucide="pie-chart" class="w-4 h-4 text-rose-500"></i> Tỷ Trọng Chi Tiêu Tháng Này
+                    </h3>
+                    <p class="text-xs text-slate-400 mb-4">Phân bổ tiền đã tiêu theo từng nhóm danh mục</p>
+                    <div class="relative flex-1 min-h-[260px] flex items-center justify-center">
+                        <canvas id="expenseDoughnutChart"></canvas>
+                        <div id="noExpenseChartMsg" class="hidden text-center text-slate-400 text-sm">
+                            <i data-lucide="folder-open" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+                            Chưa có dữ liệu chi tiêu trong tháng này
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Biểu đồ cột: Cân đối Thu - Chi - Tiết kiệm -->
+                <div class="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm flex flex-col">
+                    <h3 class="text-base font-bold text-slate-800 mb-1 flex items-center gap-2">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4 text-sky-600"></i> Cân Đối Thu - Chi - Tiết Kiệm
+                    </h3>
+                    <p class="text-xs text-slate-400 mb-4">So sánh tổng tiền vào, tiền tiêu và tiền giữ lại</p>
+                    <div class="relative flex-1 min-h-[260px] flex items-center justify-center">
+                        <canvas id="cashflowBarChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tóm tắt 5 giao dịch gần nhất trong tháng -->
+            <section class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-800">Hoạt Động Gần Nhất Trong Tháng</h3>
+                        <p class="text-xs text-slate-500">5 giao dịch mới cập nhật (Bấm vào từng tab trên thanh menu để xem chi tiết từng mục)</p>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+                                <th class="py-3 px-5">Ngày</th>
+                                <th class="py-3 px-4">Phân loại</th>
+                                <th class="py-3 px-4">Danh mục / Hình thức</th>
+                                <th class="py-3 px-4">Nội dung & Ghi chú</th>
+                                <th class="py-3 px-5 text-right">Số tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody id="overviewRecentBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 2: KHOẢN THU (NHẬP VÀO)                                         -->
+        <!-- =================================================================== -->
+        <div id="tab-panel-income" class="tab-panel hidden space-y-6">
+            <!-- Banner tóm tắt Khoản Thu -->
+            <div class="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl p-6 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <span class="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-semibold mb-2">MỤC QUẢN LÝ TIỀN VÀO</span>
+                    <h2 class="text-2xl font-bold">Tổng Khoản Thu Tháng Này</h2>
+                    <p class="text-emerald-100 text-sm mt-1">Ghi chép lương, thưởng, doanh thu phụ và mọi nguồn tiền nhập vào tài khoản</p>
+                </div>
+                <div class="text-left sm:text-right bg-black/15 px-5 py-3 rounded-2xl">
+                    <div class="text-xs text-emerald-100 uppercase tracking-wider">Tổng tiền đã nhận</div>
+                    <div class="text-3xl font-bold mt-0.5" id="inc-headerTotal">0 ₫</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Form Nhập Khoản Thu (5 cột) -->
+                <div class="lg:col-span-5 bg-white rounded-2xl p-6 border border-emerald-200/80 shadow-sm h-fit">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2" id="inc-formTitle">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-600"></i> Thêm Khoản Thu Mới
+                        </h3>
+                        <button type="button" id="inc-cancelEditBtn" onclick="resetIncomeForm()" class="hidden text-xs font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg">
+                            Hủy sửa
+                        </button>
+                    </div>
+
+                    <form id="incomeForm" class="space-y-4">
+                        <input type="hidden" id="inc-editId" value="">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Ngày nhận tiền *</label>
+                                <input type="date" id="inc-date" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Nguồn thu / Danh mục *</label>
+                                <select id="inc-category" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"></select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Số tiền nhập vào (VNĐ) *</label>
+                            <div class="relative">
+                                <input type="text" id="inc-amount" inputmode="numeric" placeholder="Ví dụ: 15.000.000" required
+                                    class="w-full pl-4 pr-10 py-3 bg-emerald-50/40 border border-emerald-200 rounded-xl text-lg font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-600 font-bold">₫</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Nội dung khoản thu *</label>
+                            <input type="text" id="inc-title" placeholder="VD: Lương tháng, Thưởng dự án, Bán đồ cũ..." required
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Ghi chú chi tiết (nếu có)</label>
+                            <textarea id="inc-note" rows="2" placeholder="VD: Nhận qua Vietcombank, đã trừ thuế TNCN..."
+                                class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                        </div>
+
+                        <button type="submit" id="inc-submitBtn" class="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                            <span>Lưu Khoản Thu</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Bảng Lịch Sử Khoản Thu (7 cột) -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+                    <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-800">Lịch Sử Các Khoản Đã Nhập Vào</h3>
+                            <p class="text-xs text-slate-500">Chi tiết từng ngày nhận tiền trong tháng</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <input type="text" id="inc-search" placeholder="Tìm nội dung, ghi chú..." class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            <select id="inc-filterCat" class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                <option value="all">Tất cả nguồn thu</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+                                    <th class="py-3 px-4">Ngày</th>
+                                    <th class="py-3 px-4">Nguồn thu</th>
+                                    <th class="py-3 px-4">Nội dung & Ghi chú</th>
+                                    <th class="py-3 px-4 text-right">Số tiền</th>
+                                    <th class="py-3 px-4 text-center">Sửa/Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inc-tableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                    <div id="inc-emptyState" class="hidden py-12 text-center text-slate-400">
+                        <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+                        <p class="text-sm font-medium text-slate-600">Chưa có khoản thu nào trong tháng này</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 3: KHOẢN CHI (CHI TIÊU)                                         -->
+        <!-- =================================================================== -->
+        <div id="tab-panel-expense" class="tab-panel hidden space-y-6">
+            <!-- Banner tóm tắt Khoản Chi -->
+            <div class="bg-gradient-to-r from-rose-600 to-orange-600 rounded-2xl p-6 text-white shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <span class="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-semibold mb-2">MỤC QUẢN LÝ CHI TIÊU</span>
+                    <h2 class="text-2xl font-bold">Tổng Đã Chi Tiêu Tháng Này</h2>
+                    <p class="text-rose-100 text-sm mt-1">Ghi rõ từng món đã mua, ngày tiêu và ghi chú để kiểm soát dòng tiền chặt chẽ</p>
+                </div>
+                <div class="text-left sm:text-right bg-black/15 px-5 py-3 rounded-2xl">
+                    <div class="text-xs text-rose-100 uppercase tracking-wider">Tổng tiền đã tiêu</div>
+                    <div class="text-3xl font-bold mt-0.5" id="exp-headerTotal">0 ₫</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Form Nhập Khoản Chi (5 cột) -->
+                <div class="lg:col-span-5 bg-white rounded-2xl p-6 border border-rose-200/80 shadow-sm h-fit">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2" id="exp-formTitle">
+                            <i data-lucide="minus-circle" class="w-5 h-5 text-rose-600"></i> Ghi Khoản Đã Chi Mới
+                        </h3>
+                        <button type="button" id="exp-cancelEditBtn" onclick="resetExpenseForm()" class="hidden text-xs font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg">
+                            Hủy sửa
+                        </button>
+                    </div>
+
+                    <form id="expenseForm" class="space-y-4">
+                        <input type="hidden" id="exp-editId" value="">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Ngày chi tiêu *</label>
+                                <input type="date" id="exp-date" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Danh mục chi *</label>
+                                <select id="exp-category" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"></select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Số tiền đã tiêu (VNĐ) *</label>
+                            <div class="relative">
+                                <input type="text" id="exp-amount" inputmode="numeric" placeholder="Ví dụ: 120.000" required
+                                    class="w-full pl-4 pr-10 py-3 bg-rose-50/40 border border-rose-200 rounded-xl text-lg font-bold text-rose-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-rose-600 font-bold">₫</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Tên món / Khoản đã tiêu *</label>
+                            <input type="text" id="exp-title" placeholder="VD: Ăn trưa cơm tấm, Đổ xăng, Tiền điện..." required
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Ghi chú chi tiết (nếu có)</label>
+                            <textarea id="exp-note" rows="2" placeholder="VD: Mua tại siêu thị Co.opmart, thanh toán Momo..."
+                                class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"></textarea>
+                        </div>
+
+                        <button type="submit" id="exp-submitBtn" class="w-full py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                            <span>Lưu Khoản Chi</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Bảng Lịch Sử Khoản Chi (7 cột) -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+                    <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-800">Chi Tiết Đã Tiêu Những Gì</h3>
+                            <p class="text-xs text-slate-500">Danh sách đầy đủ theo ngày trong tháng</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <input type="text" id="exp-search" placeholder="Tìm tên món, ghi chú..." class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                            <select id="exp-filterCat" class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+                                <option value="all">Tất cả danh mục</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+                                    <th class="py-3 px-4">Ngày</th>
+                                    <th class="py-3 px-4">Danh mục</th>
+                                    <th class="py-3 px-4">Món đã tiêu & Ghi chú</th>
+                                    <th class="py-3 px-4 text-right">Số tiền</th>
+                                    <th class="py-3 px-4 text-center">Sửa/Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="exp-tableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                    <div id="exp-emptyState" class="hidden py-12 text-center text-slate-400">
+                        <i data-lucide="receipt" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+                        <p class="text-sm font-medium text-slate-600">Chưa có khoản chi tiêu nào trong tháng này</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- =================================================================== -->
+        <!-- TAB 4: TIẾT KIỆM & QUỸ MỤC TIÊU                                     -->
+        <!-- =================================================================== -->
+        <div id="tab-panel-saving" class="tab-panel hidden space-y-6">
+            <!-- Khu vực Mục tiêu tiết kiệm tháng & Thanh tiến độ -->
+            <div class="bg-gradient-to-r from-teal-600 to-sky-700 rounded-2xl p-6 text-white shadow-md">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                    <div>
+                        <span class="inline-block px-3 py-1 bg-white/20 rounded-full text-xs font-semibold mb-2">MỤC QUẢN LÝ TIẾT KIỆM & TÍCH LŨY</span>
+                        <h2 class="text-2xl font-bold">Tiến Độ Tiết Kiệm Tháng <span id="sav-monthLabel"></span></h2>
+                        <p class="text-teal-100 text-sm mt-1">Ghi nhận từng lần trích tiền vào quỹ dự phòng, sổ tiết kiệm hoặc đầu tư</p>
+                    </div>
+                    <button onclick="openGoalModal()" class="self-start md:self-auto px-4 py-2.5 bg-white text-teal-800 hover:bg-teal-50 rounded-xl font-semibold text-sm shadow-sm transition flex items-center gap-2">
+                        <i data-lucide="target" class="w-4 h-4"></i> Đặt Mục Tiêu Tháng
+                    </button>
+                </div>
+
+                <!-- Thanh tiến độ chi tiết -->
+                <div class="bg-black/15 rounded-2xl p-4">
+                    <div class="flex flex-wrap justify-between items-end gap-2 mb-2">
+                        <div>
+                            <span class="text-xs text-teal-100 block">Đã tiết kiệm được:</span>
+                            <span class="text-2xl sm:text-3xl font-bold text-amber-300" id="sav-headerTotal">0 ₫</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-xs text-teal-100 block">Mục tiêu tháng này:</span>
+                            <span class="text-lg font-bold" id="sav-goalDisplay">5.000.000 ₫</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-black/25 rounded-full h-3.5 overflow-hidden">
+                        <div id="sav-progressBar" class="bg-amber-300 h-3.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-teal-100 mt-2">
+                        <span id="sav-percentText" class="font-semibold">Hoàn thành 0% mục tiêu</span>
+                        <span id="sav-remainingText">Còn thiếu: 5.000.000 ₫</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Form Nhập Khoản Tiết Kiệm (5 cột) -->
+                <div class="lg:col-span-5 bg-white rounded-2xl p-6 border border-teal-200/80 shadow-sm h-fit">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2" id="sav-formTitle">
+                            <i data-lucide="piggy-bank" class="w-5 h-5 text-teal-600"></i> Trích Tiền Tiết Kiệm Mới
+                        </h3>
+                        <button type="button" id="sav-cancelEditBtn" onclick="resetSavingForm()" class="hidden text-xs font-semibold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg">
+                            Hủy sửa
+                        </button>
+                    </div>
+
+                    <form id="savingForm" class="space-y-4">
+                        <input type="hidden" id="sav-editId" value="">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Ngày trích tiết kiệm *</label>
+                                <input type="date" id="sav-date" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Hình thức / Nơi gửi *</label>
+                                <select id="sav-category" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"></select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Số tiền gửi tiết kiệm (VNĐ) *</label>
+                            <div class="relative">
+                                <input type="text" id="sav-amount" inputmode="numeric" placeholder="Ví dụ: 3.000.000" required
+                                    class="w-full pl-4 pr-10 py-3 bg-teal-50/40 border border-teal-200 rounded-xl text-lg font-bold text-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-teal-600 font-bold">₫</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Mục đích quỹ tiết kiệm *</label>
+                            <input type="text" id="sav-title" placeholder="VD: Quỹ dự phòng 6 tháng, Mua xe, Du lịch hè..." required
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Ghi chú chi tiết (nếu có)</label>
+                            <textarea id="sav-note" rows="2" placeholder="VD: Gửi kỳ hạn 6 tháng lãi suất 5.5%/năm tại Techcombank..."
+                                class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"></textarea>
+                        </div>
+
+                        <button type="submit" id="sav-submitBtn" class="w-full py-3 px-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                            <span>Lưu Khoản Tiết Kiệm</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Bảng Lịch Sử Tiết Kiệm (7 cột) -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col">
+                    <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-800">Lịch Sử Các Lần Trích Tiết Kiệm</h3>
+                            <p class="text-xs text-slate-500">Chi tiết các khoản đã tích lũy trong tháng</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <input type="text" id="sav-search" placeholder="Tìm mục đích, ghi chú..." class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                            <select id="sav-filterCat" class="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                                <option value="all">Tất cả hình thức</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto flex-1">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase text-slate-500">
+                                    <th class="py-3 px-4">Ngày</th>
+                                    <th class="py-3 px-4">Hình thức / Nơi gửi</th>
+                                    <th class="py-3 px-4">Mục đích & Ghi chú</th>
+                                    <th class="py-3 px-4 text-right">Số tiền</th>
+                                    <th class="py-3 px-4 text-center">Sửa/Xóa</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sav-tableBody" class="divide-y divide-slate-100 text-sm"></tbody>
+                        </table>
+                    </div>
+                    <div id="sav-emptyState" class="hidden py-12 text-center text-slate-400">
+                        <i data-lucide="piggy-bank" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+                        <p class="text-sm font-medium text-slate-600">Chưa có khoản trích tiết kiệm nào trong tháng này</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Cài Đặt Mục Tiêu Tiết Kiệm -->
+    <div id="goalModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="target" class="w-5 h-5 text-teal-600"></i> Mục Tiêu Tiết Kiệm Tháng
+                </h3>
+                <button onclick="closeGoalModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-sm text-slate-500 mb-4">Nhập số tiền bạn đặt mục tiêu tiết kiệm trong tháng <span id="goalModalMonthLabel" class="font-semibold text-slate-700"></span>.</p>
+            <div class="mb-5">
+                <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Hạn mức mục tiêu (VNĐ)</label>
+                <input type="text" id="goalAmountInput" inputmode="numeric" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeGoalModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100">Hủy</button>
+                <button onclick="saveSavingGoal()" class="px-5 py-2 rounded-xl text-sm font-semibold bg-teal-600 hover:bg-teal-700 text-white shadow-sm">Lưu Mục Tiêu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Xóa Dữ Liệu -->
+    <div id="resetModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mb-4">
+                <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800 mb-2">Quản Lý Dữ Liệu Sổ Thu Chi</h3>
+            <p class="text-sm text-slate-500 mb-5">Bạn có thể nạp lại bộ dữ liệu mẫu để trải nghiệm hoặc xóa toàn bộ dữ liệu hiện tại để bắt đầu ghi chép mới.</p>
+            <div class="flex flex-col sm:flex-row justify-end gap-2">
+                <button onclick="closeResetModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100">Đóng</button>
+                <button onclick="restoreSampleData()" class="px-4 py-2 rounded-xl text-sm font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200">Nạp dữ liệu mẫu</button>
+                <button onclick="clearAllData()" class="px-4 py-2 rounded-xl text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white">Xóa sạch tất cả</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Thông Báo Nhanh -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-800 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-medium">
+            <span id="toastMessage">Thao tác thành công!</span>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // ==========================================
+        // 1. DANH MỤC CHI TIẾT CHO TỪNG PHÂN MỤC
+        // ==========================================
+        const CATEGORIES = {
+            income: [
+                { name: 'Lương chính', color: '#10b981' },
+                { name: 'Thưởng & Phụ cấp', color: '#14b8a6' },
+                { name: 'Thu nhập phụ / Freelance', color: '#0ea5e9' },
+                { name: 'Lợi nhuận đầu tư / Lãi', color: '#6366f1' },
+                { name: 'Được tặng / Hoàn tiền', color: '#8b5cf6' },
+                { name: 'Nguồn thu khác', color: '#84cc16' }
+            ],
+            expense: [
+                { name: 'Ăn uống & Cafe', color: '#f43f5e' },
+                { name: 'Nhà cửa & Hóa đơn', color: '#f97316' },
+                { name: 'Di chuyển & Xăng xe', color: '#eab308' },
+                { name: 'Mua sắm & Quần áo', color: '#8b5cf6' },
+                { name: 'Giải trí & Du lịch', color: '#ec4899' },
+                { name: 'Sức khỏe & Y tế', color: '#06b6d4' },
+                { name: 'Giáo dục & Phát triển', color: '#3b82f6' },
+                { name: 'Hiếu hỉ & Quà tặng', color: '#d946ef' },
+                { name: 'Chi tiêu khác', color: '#64748b' }
+            ],
+            saving: [
+                { name: 'Sổ tiết kiệm ngân hàng', color: '#0d9488' },
+                { name: 'Tài khoản tích lũy riêng', color: '#0284c7' },
+                { name: 'Heo đất / Tiền mặt cất giữ', color: '#f59e0b' },
+                { name: 'Quỹ đầu tư (Vàng/Chứng chỉ quỹ)', color: '#7c3aed' },
+                { name: 'Quỹ dự phòng khẩn cấp', color: '#059669' }
+            ]
+        };
+
+        const STORAGE_KEY = 'fintrack_vn_transactions_v2';
+        const GOALS_KEY = 'fintrack_vn_goals_v2';
+
+        let transactions = [];
+        let savingGoals = {};
+        let currentTab = 'overview';
+        let doughnutChart = null;
+        let barChart = null;
+
+        // ==========================================
+        // 2. KHỞI TẠO ỨNG DỤNG
+        // ==========================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const now = new Date();
+            const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+            const todayStr = `${currentMonthStr}-${String(now.getDate()).padStart(2, '0')}`;
+
+            document.getElementById('monthFilter').value = currentMonthStr;
+            setDefaultDatesOnForms(todayStr);
+
+            loadDataFromStorage();
+            initCategoryDropdowns();
+            setupEventListeners();
+            renderAll();
+            lucide.createIcons();
+        });
+
+        function setDefaultDatesOnForms(dateStr) {
+            document.getElementById('inc-date').value = dateStr;
+            document.getElementById('exp-date').value = dateStr;
+            document.getElementById('sav-date').value = dateStr;
+        }
+
+        function generateSampleData(monthStr) {
+            return [
+                { id: 'tx_1', type: 'income', date: `${monthStr}-05`, amount: 18500000, category: 'Lương chính', title: 'Lương tháng cố định', note: 'Chuyển khoản qua Vietcombank' },
+                { id: 'tx_2', type: 'income', date: `${monthStr}-12`, amount: 3200000, category: 'Thu nhập phụ / Freelance', title: 'Thiết kế giao diện landing page', note: 'Khách hàng thanh toán 100%' },
+                { id: 'tx_3', type: 'saving', date: `${monthStr}-06`, amount: 3500000, category: 'Sổ tiết kiệm ngân hàng', title: 'Quỹ tích lũy mua nhà / xe', note: 'Gửi tiết kiệm online kỳ hạn 6 tháng' },
+                { id: 'tx_4', type: 'saving', date: `${monthStr}-14`, amount: 1000000, category: 'Quỹ dự phòng khẩn cấp', title: 'Trích thêm từ tiền freelance', note: 'Giữ trong tài khoản riêng không thẻ ATM' },
+                { id: 'tx_5', type: 'expense', date: `${monthStr}-07`, amount: 3600000, category: 'Nhà cửa & Hóa đơn', title: 'Tiền thuê phòng + Điện nước + Wifi', note: 'Thanh toán qua app ngân hàng' },
+                { id: 'tx_6', type: 'expense', date: `${monthStr}-10`, amount: 95000, category: 'Ăn uống & Cafe', title: 'Cơm trưa văn phòng & Cafe sáng', note: 'Quán cơm gần công ty' },
+                { id: 'tx_7', type: 'expense', date: `${monthStr}-11`, amount: 110000, category: 'Di chuyển & Xăng xe', title: 'Đổ đầy bình xăng RON 95', note: 'Cây xăng Petrolimex' },
+                { id: 'tx_8', type: 'expense', date: `${monthStr}-15`, amount: 580000, category: 'Mua sắm & Quần áo', title: 'Mua áo sơ mi và tất đi làm', note: 'Mua dịp sale giữa tháng' },
+                { id: 'tx_9', type: 'expense', date: `${monthStr}-16`, amount: 340000, category: 'Giải trí & Du lịch', title: 'Vé xem phim CGV & Bắp nước cuối tuần', note: 'Đi cùng bạn bè' }
+            ];
+        }
+
+        function loadDataFromStorage() {
+            try {
+                const rawTx = localStorage.getItem(STORAGE_KEY);
+                const rawGoals = localStorage.getItem(GOALS_KEY);
+
+                if (rawTx) {
+                    transactions = JSON.parse(rawTx);
+                } else {
+                    const selectedMonth = document.getElementById('monthFilter').value;
+                    transactions = generateSampleData(selectedMonth);
+                    saveTransactions();
+                }
+
+                if (rawGoals) {
+                    savingGoals = JSON.parse(rawGoals);
+                }
+            } catch (e) {
+                console.error('Lỗi đọc localStorage:', e);
+                transactions = [];
+                savingGoals = {};
+            }
+        }
+
+        function saveTransactions() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+        }
+
+        function saveGoals() {
+            localStorage.setItem(GOALS_KEY, JSON.stringify(savingGoals));
+        }
+
+        // ==========================================
+        // 3. ĐIỀU HƯỚNG TAB & TIỆN ÍCH ĐỊNH DẠNG
+        // ==========================================
+        function switchTab(tabName) {
+            currentTab = tabName;
+
+            // Ẩn tất cả panels
+            document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+            document.getElementById(`tab-panel-${tabName}`).classList.remove('hidden');
+
+            // Cập nhật style nút Tab
+            const tabStyles = {
+                overview: 'bg-slate-800 text-white shadow-sm',
+                income: 'bg-emerald-600 text-white shadow-sm',
+                expense: 'bg-rose-600 text-white shadow-sm',
+                saving: 'bg-teal-600 text-white shadow-sm'
+            };
+
+            ['overview', 'income', 'expense', 'saving'].forEach(t => {
+                const btn = document.getElementById(`tab-btn-${t}`);
+                btn.className = `tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all ${
+                    t === tabName ? tabStyles[t] : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                }`;
+            });
+
+            if (tabName === 'overview') {
+                renderOverview();
+            }
+            lucide.createIcons();
+        }
+
+        function formatVND(amount) {
+            return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
+        }
+
+        function parseCurrencyInput(str) {
+            return parseInt(String(str).replace(/\D/g, ''), 10) || 0;
+        }
+
+        function bindCurrencyFormatter(inputId) {
+            const el = document.getElementById(inputId);
+            el.addEventListener('input', (e) => {
+                const rawVal = e.target.value.replace(/\D/g, '');
+                e.target.value = rawVal ? new Intl.NumberFormat('vi-VN').format(parseInt(rawVal, 10)) : '';
+            });
+        }
+
+        function getCategoryColor(type, catName) {
+            const found = (CATEGORIES[type] || []).find(c => c.name === catName);
+            return found ? found.color : '#64748b';
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = message;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, tag => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            }[tag]));
+        }
+
+        // ==========================================
+        // 4. KHỞI TẠO DROPDOWN & SỰ KIỆN FORM
+        // ==========================================
+        function initCategoryDropdowns() {
+            // Khoản Thu
+            document.getElementById('inc-category').innerHTML = CATEGORIES.income
+                .map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            document.getElementById('inc-filterCat').innerHTML = `<option value="all">Tất cả nguồn thu</option>` +
+                CATEGORIES.income.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+
+            // Khoản Chi
+            document.getElementById('exp-category').innerHTML = CATEGORIES.expense
+                .map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            document.getElementById('exp-filterCat').innerHTML = `<option value="all">Tất cả danh mục</option>` +
+                CATEGORIES.expense.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+
+            // Tiết kiệm
+            document.getElementById('sav-category').innerHTML = CATEGORIES.saving
+                .map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+            document.getElementById('sav-filterCat').innerHTML = `<option value="all">Tất cả hình thức</option>` +
+                CATEGORIES.saving.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+        }
+
+        function setupEventListeners() {
+            ['inc-amount', 'exp-amount', 'sav-amount', 'goalAmountInput'].forEach(bindCurrencyFormatter);
+
+            // Đổi tháng đồng bộ toàn hệ thống
+            document.getElementById('monthFilter').addEventListener('change', (e) => {
+                const m = e.target.value;
+                if (m) {
+                    const now = new Date();
+                    const curM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                    const targetDate = (m === curM) ? `${curM}-${String(now.getDate()).padStart(2, '0')}` : `${m}-01`;
+                    setDefaultDatesOnForms(targetDate);
+                }
+                renderAll();
+            });
+
+            // Submit 3 Form riêng biệt
+            document.getElementById('incomeForm').addEventListener('submit', (e) => handleSectionSubmit(e, 'income', 'inc'));
+            document.getElementById('expenseForm').addEventListener('submit', (e) => handleSectionSubmit(e, 'expense', 'exp'));
+            document.getElementById('savingForm').addEventListener('submit', (e) => handleSectionSubmit(e, 'saving', 'sav'));
+
+            // Tìm kiếm & Lọc cho từng bảng
+            document.getElementById('inc-search').addEventListener('input', () => renderSectionTable('income', 'inc'));
+            document.getElementById('inc-filterCat').addEventListener('change', () => renderSectionTable('income', 'inc'));
+
+            document.getElementById('exp-search').addEventListener('input', () => renderSectionTable('expense', 'exp'));
+            document.getElementById('exp-filterCat').addEventListener('change', () => renderSectionTable('expense', 'exp'));
+
+            document.getElementById('sav-search').addEventListener('input', () => renderSectionTable('saving', 'sav'));
+            document.getElementById('sav-filterCat').addEventListener('change', () => renderSectionTable('saving', 'sav'));
+        }
+
+        function handleSectionSubmit(e, type, prefix) {
+            e.preventDefault();
+
+            const editId = document.getElementById(`${prefix}-editId`).value;
+            const date = document.getElementById(`${prefix}-date`).value;
+            const category = document.getElementById(`${prefix}-category`).value;
+            const amount = parseCurrencyInput(document.getElementById(`${prefix}-amount`).value);
+            const title = document.getElementById(`${prefix}-title`).value.trim();
+            const note = document.getElementById(`${prefix}-note`).value.trim();
+
+            if (amount <= 0) {
+                showToast('Vui lòng nhập số tiền lớn hơn 0!');
+                return;
+            }
+
+            if (editId) {
+                const idx = transactions.findIndex(t => t.id === editId);
+                if (idx !== -1) {
+                    transactions[idx] = { id: editId, type, date, category, amount, title, note };
+                    showToast('Đã cập nhật thay đổi!');
+                }
+            } else {
+                transactions.unshift({
+                    id: 'tx_' + Date.now(),
+                    type,
+                    date,
+                    category,
+                    amount,
+                    title,
+                    note
+                });
+                showToast('Đã lưu giao dịch mới!');
+            }
+
+            // Đồng bộ tháng hiển thị theo ngày vừa nhập
+            document.getElementById('monthFilter').value = date.substring(0, 7);
+
+            saveTransactions();
+            if (prefix === 'inc') resetIncomeForm();
+            if (prefix === 'exp') resetExpenseForm();
+            if (prefix === 'sav') resetSavingForm();
+
+            renderAll();
+        }
+
+        // Chỉnh sửa giao dịch (tự động mở đúng Tab tương ứng)
+        function editTransaction(id) {
+            const tx = transactions.find(t => t.id === id);
+            if (!tx) return;
+
+            const map = {
+                income: { prefix: 'inc', label: 'Sửa Khoản Thu' },
+                expense: { prefix: 'exp', label: 'Sửa Khoản Chi' },
+                saving: { prefix: 'sav', label: 'Sửa Khoản Tiết Kiệm' }
+            };
+
+            const cfg = map[tx.type];
+            switchTab(tx.type);
+
+            document.getElementById(`${cfg.prefix}-editId`).value = tx.id;
+            document.getElementById(`${cfg.prefix}-date`).value = tx.date;
+            document.getElementById(`${cfg.prefix}-category`).value = tx.category;
+            document.getElementById(`${cfg.prefix}-amount`).value = new Intl.NumberFormat('vi-VN').format(tx.amount);
+            document.getElementById(`${cfg.prefix}-title`).value = tx.title;
+            document.getElementById(`${cfg.prefix}-note`).value = tx.note || '';
+
+            document.getElementById(`${cfg.prefix}-formTitle`).innerHTML = `<i data-lucide="edit-3" class="w-5 h-5 text-amber-500"></i> ${cfg.label}`;
+            document.getElementById(`${cfg.prefix}-submitBtn`).innerHTML = `<i data-lucide="save" class="w-4 h-4"></i> <span>Cập Nhật</span>`;
+            document.getElementById(`${cfg.prefix}-cancelEditBtn`).classList.remove('hidden');
+            lucide.createIcons();
+
+            document.getElementById(`${cfg.prefix}-formTitle`).scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function deleteTransaction(id) {
+            transactions = transactions.filter(t => t.id !== id);
+            saveTransactions();
+            renderAll();
+            showToast('Đã xóa bản ghi!');
+        }
+
+        function resetIncomeForm() {
+            document.getElementById('inc-editId').value = '';
+            document.getElementById('inc-amount').value = '';
+            document.getElementById('inc-title').value = '';
+            document.getElementById('inc-note').value = '';
+            document.getElementById('inc-formTitle').innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5 text-emerald-600"></i> Thêm Khoản Thu Mới`;
+            document.getElementById('inc-submitBtn').innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> <span>Lưu Khoản Thu</span>`;
+            document.getElementById('inc-cancelEditBtn').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function resetExpenseForm() {
+            document.getElementById('exp-editId').value = '';
+            document.getElementById('exp-amount').value = '';
+            document.getElementById('exp-title').value = '';
+            document.getElementById('exp-note').value = '';
+            document.getElementById('exp-formTitle').innerHTML = `<i data-lucide="minus-circle" class="w-5 h-5 text-rose-600"></i> Ghi Khoản Đã Chi Mới`;
+            document.getElementById('exp-submitBtn').innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> <span>Lưu Khoản Chi</span>`;
+            document.getElementById('exp-cancelEditBtn').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        function resetSavingForm() {
+            document.getElementById('sav-editId').value = '';
+            document.getElementById('sav-amount').value = '';
+            document.getElementById('sav-title').value = '';
+            document.getElementById('sav-note').value = '';
+            document.getElementById('sav-formTitle').innerHTML = `<i data-lucide="piggy-bank" class="w-5 h-5 text-teal-600"></i> Trích Tiền Tiết Kiệm Mới`;
+            document.getElementById('sav-submitBtn').innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> <span>Lưu Khoản Tiết Kiệm</span>`;
+            document.getElementById('sav-cancelEditBtn').classList.add('hidden');
+            lucide.createIcons();
+        }
+
+        // ==========================================
+        // 5. RENDER TOÀN BỘ DỮ LIỆU & BIỂU ĐỒ
+        // ==========================================
+        function getMonthlyTransactions() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            return transactions
+                .filter(t => t.date.startsWith(selectedMonth))
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+        }
+
+        function renderAll() {
+            const monthlyTx = getMonthlyTransactions();
+            const selectedMonth = document.getElementById('monthFilter').value;
+
+            const incList = monthlyTx.filter(t => t.type === 'income');
+            const expList = monthlyTx.filter(t => t.type === 'expense');
+            const savList = monthlyTx.filter(t => t.type === 'saving');
+
+            const totalIncome = incList.reduce((sum, t) => sum + t.amount, 0);
+            const totalExpense = expList.reduce((sum, t) => sum + t.amount, 0);
+            const totalSaving = savList.reduce((sum, t) => sum + t.amount, 0);
+            const balance = totalIncome - (totalExpense + totalSaving);
+
+            // Cập nhật Badge đếm số lượng trên thanh Tabs
+            document.getElementById('badge-income').textContent = incList.length;
+            document.getElementById('badge-expense').textContent = expList.length;
+            document.getElementById('badge-saving').textContent = savList.length;
+
+            // Cập nhật Header của từng Tab riêng
+            document.getElementById('inc-headerTotal').textContent = formatVND(totalIncome);
+            document.getElementById('exp-headerTotal').textContent = formatVND(totalExpense);
+            document.getElementById('sav-headerTotal').textContent = formatVND(totalSaving);
+
+            // Cập nhật Mục tiêu & Thanh tiến độ Tab Tiết kiệm
+            const [y, m] = selectedMonth.split('-');
+            document.getElementById('sav-monthLabel').textContent = `${m}/${y}`;
+            const goalAmount = savingGoals[selectedMonth] || 5000000;
+            const percent = goalAmount > 0 ? Math.min(100, Math.round((totalSaving / goalAmount) * 100)) : 0;
+            const remaining = Math.max(0, goalAmount - totalSaving);
+
+            document.getElementById('sav-goalDisplay').textContent = formatVND(goalAmount);
+            document.getElementById('sav-progressBar').style.width = `${percent}%`;
+            document.getElementById('sav-percentText').textContent = `Hoàn thành ${percent}% mục tiêu`;
+            document.getElementById('sav-remainingText').textContent = remaining > 0 ? `Còn thiếu: ${formatVND(remaining)}` : 'Đã vượt mục tiêu đề ra!';
+
+            // Cập nhật Tab Tổng Quan
+            document.getElementById('ov-totalIncome').textContent = formatVND(totalIncome);
+            document.getElementById('ov-incomeCount').textContent = `${incList.length} khoản thu`;
+            document.getElementById('ov-totalExpense').textContent = formatVND(totalExpense);
+            document.getElementById('ov-expenseCount').textContent = `${expList.length} khoản chi`;
+            document.getElementById('ov-totalSaving').textContent = formatVND(totalSaving);
+            document.getElementById('ov-savingPercent').textContent = `Đạt ${percent}% mục tiêu`;
+
+            const balEl = document.getElementById('ov-balance');
+            balEl.textContent = formatVND(balance);
+            balEl.className = balance < 0 ? 'text-2xl font-bold text-rose-400' : 'text-2xl font-bold text-white';
+
+            // Render 3 bảng riêng biệt
+            renderSectionTable('income', 'inc');
+            renderSectionTable('expense', 'exp');
+            renderSectionTable('saving', 'sav');
+
+            // Render Tổng quan (Biểu đồ & 5 giao dịch gần nhất)
+            renderOverviewRecentTable(monthlyTx);
+            renderCharts(expList, totalIncome, totalExpense, totalSaving);
+            lucide.createIcons();
+        }
+
+        function renderSectionTable(type, prefix) {
+            const monthlyTx = getMonthlyTransactions().filter(t => t.type === type);
+            const search = document.getElementById(`${prefix}-search`).value.toLowerCase().trim();
+            const catFilter = document.getElementById(`${prefix}-filterCat`).value;
+
+            const filtered = monthlyTx.filter(tx => {
+                const matchText = tx.title.toLowerCase().includes(search) ||
+                                  (tx.note && tx.note.toLowerCase().includes(search)) ||
+                                  tx.category.toLowerCase().includes(search);
+                const matchCat = (catFilter === 'all') || (tx.category === catFilter);
+                return matchText && matchCat;
+            });
+
+            const tbody = document.getElementById(`${prefix}-tableBody`);
+            const emptyState = document.getElementById(`${prefix}-emptyState`);
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+
+            const amountColors = {
+                income: 'text-emerald-600',
+                expense: 'text-rose-600',
+                saving: 'text-teal-600'
+            };
+            const signs = { income: '+', expense: '-', saving: '' };
+
+            tbody.innerHTML = filtered.map(tx => {
+                const dateFormatted = tx.date.split('-').reverse().join('/');
+                const color = getCategoryColor(type, tx.category);
+
+                return `
+                    <tr class="hover:bg-slate-50/90 transition">
+                        <td class="py-3.5 px-4 whitespace-nowrap text-slate-500 font-medium">${dateFormatted}</td>
+                        <td class="py-3.5 px-4 whitespace-nowrap">
+                            <span class="inline-block px-2.5 py-1 rounded-lg text-xs font-semibold" style="background-color: ${color}15; color: ${color}">
+                                ${escapeHTML(tx.category)}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <div class="font-semibold text-slate-800">${escapeHTML(tx.title)}</div>
+                            ${tx.note ? `<div class="text-xs text-slate-500 mt-0.5"><i data-lucide="file-text" class="w-3 h-3 inline mr-1"></i>${escapeHTML(tx.note)}</div>` : ''}
+                        </td>
+                        <td class="py-3.5 px-4 text-right whitespace-nowrap font-bold ${amountColors[type]}">
+                            ${signs[type]}${formatVND(tx.amount)}
+                        </td>
+                        <td class="py-3.5 px-4 text-center whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1">
+                                <button onclick="editTransaction('${tx.id}')" title="Chỉnh sửa" class="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg transition">
+                                    <i data-lucide="pencil" class="w-4 h-4"></i>
+                                </button>
+                                <button onclick="deleteTransaction('${tx.id}')" title="Xóa" class="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function renderOverviewRecentTable(monthlyTx) {
+            const tbody = document.getElementById('overviewRecentBody');
+            const recent = monthlyTx.slice(0, 5);
+
+            if (recent.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-slate-400 text-sm">Chưa có giao dịch nào trong tháng này</td></tr>`;
+                return;
+            }
+
+            const typeBadges = {
+                income: '<span class="px-2 py-0.5 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-700">Khoản Thu</span>',
+                expense: '<span class="px-2 py-0.5 rounded-md text-xs font-semibold bg-rose-100 text-rose-700">Khoản Chi</span>',
+                saving: '<span class="px-2 py-0.5 rounded-md text-xs font-semibold bg-teal-100 text-teal-700">Tiết Kiệm</span>'
+            };
+            const amountClasses = { income: 'text-emerald-600', expense: 'text-rose-600', saving: 'text-teal-600' };
+            const signs = { income: '+', expense: '-', saving: '' };
+
+            tbody.innerHTML = recent.map(tx => `
+                <tr class="hover:bg-slate-50 transition cursor-pointer" onclick="switchTab('${tx.type}')">
+                    <td class="py-3 px-5 whitespace-nowrap text-slate-500">${tx.date.split('-').reverse().join('/')}</td>
+                    <td class="py-3 px-4 whitespace-nowrap">${typeBadges[tx.type]}</td>
+                    <td class="py-3 px-4 whitespace-nowrap text-slate-600 font-medium">${escapeHTML(tx.category)}</td>
+                    <td class="py-3 px-4">
+                        <span class="font-semibold text-slate-800">${escapeHTML(tx.title)}</span>
+                        ${tx.note ? `<span class="text-xs text-slate-400 block">${escapeHTML(tx.note)}</span>` : ''}
+                    </td>
+                    <td class="py-3 px-5 text-right whitespace-nowrap font-bold ${amountClasses[tx.type]}">
+                        ${signs[tx.type]}${formatVND(tx.amount)}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderOverview() {
+            const monthlyTx = getMonthlyTransactions();
+            const expList = monthlyTx.filter(t => t.type === 'expense');
+            const totalIncome = monthlyTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+            const totalExpense = expList.reduce((s, t) => s + t.amount, 0);
+            const totalSaving = monthlyTx.filter(t => t.type === 'saving').reduce((s, t) => s + t.amount, 0);
+            renderCharts(expList, totalIncome, totalExpense, totalSaving);
+        }
+
+        function renderCharts(expenseTx, totalIncome, totalExpense, totalSaving) {
+            const categoryMap = {};
+            expenseTx.forEach(tx => {
+                categoryMap[tx.category] = (categoryMap[tx.category] || 0) + tx.amount;
+            });
+
+            const labels = Object.keys(categoryMap);
+            const dataValues = Object.values(categoryMap);
+            const bgColors = labels.map(catName => getCategoryColor('expense', catName));
+
+            const doughnutCanvas = document.getElementById('expenseDoughnutChart');
+            const noExpenseMsg = document.getElementById('noExpenseChartMsg');
+
+            if (doughnutChart) doughnutChart.destroy();
+
+            if (labels.length === 0) {
+                doughnutCanvas.classList.add('hidden');
+                noExpenseMsg.classList.remove('hidden');
+            } else {
+                doughnutCanvas.classList.remove('hidden');
+                noExpenseMsg.classList.add('hidden');
+
+                doughnutChart = new Chart(doughnutCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: dataValues,
+                            backgroundColor: bgColors,
+                            borderWidth: 2,
+                            borderColor: '#ffffff',
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '65%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { boxWidth: 12, padding: 12, font: { family: 'Inter', size: 11 } }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(ctx) {
+                                        const val = ctx.raw;
+                                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                        const pct = Math.round((val / total) * 100);
+                                        return ` ${ctx.label}: ${formatVND(val)} (${pct}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            const barCanvas = document.getElementById('cashflowBarChart');
+            if (barChart) barChart.destroy();
+
+            barChart = new Chart(barCanvas, {
+                type: 'bar',
+                data: {
+                    labels: ['Khoản Thu', 'Khoản Chi', 'Tiết Kiệm'],
+                    datasets: [{
+                        label: 'Số tiền (VNĐ)',
+                        data: [totalIncome, totalExpense, totalSaving],
+                        backgroundColor: ['#10b981', '#f43f5e', '#0d9488'],
+                        borderRadius: 8,
+                        barThickness: 40
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: { label: (ctx) => ` ${formatVND(ctx.raw)}` }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                font: { family: 'Inter', size: 11 },
+                                callback: (val) => val >= 1000000 ? (val / 1000000) + 'tr' : (val / 1000) + 'k'
+                            }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { family: 'Inter', size: 12, weight: '600' } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // 6. QUẢN LÝ MỤC TIÊU, XUẤT EXCEL & DỮ LIỆU MẪU
+        // ==========================================
+        function openGoalModal() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const [year, month] = selectedMonth.split('-');
+            document.getElementById('goalModalMonthLabel').textContent = `${month}/${year}`;
+            const currentGoal = savingGoals[selectedMonth] || 5000000;
+            document.getElementById('goalAmountInput').value = new Intl.NumberFormat('vi-VN').format(currentGoal);
+            document.getElementById('goalModal').classList.remove('hidden');
+        }
+
+        function closeGoalModal() {
+            document.getElementById('goalModal').classList.add('hidden');
+        }
+
+        function saveSavingGoal() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const newGoal = parseCurrencyInput(document.getElementById('goalAmountInput').value);
+            if (newGoal <= 0) {
+                showToast('Mục tiêu tiết kiệm phải lớn hơn 0!');
+                return;
+            }
+            savingGoals[selectedMonth] = newGoal;
+            saveGoals();
+            closeGoalModal();
+            renderAll();
+            showToast('Đã cập nhật mục tiêu tiết kiệm!');
+        }
+
+        function openResetModal() {
+            document.getElementById('resetModal').classList.remove('hidden');
+        }
+
+        function closeResetModal() {
+            document.getElementById('resetModal').classList.add('hidden');
+        }
+
+        function clearAllData() {
+            transactions = [];
+            saveTransactions();
+            closeResetModal();
+            renderAll();
+            showToast('Đã xóa sạch dữ liệu!');
+        }
+
+        function restoreSampleData() {
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const sample = generateSampleData(selectedMonth).map((item, idx) => ({
+                ...item,
+                id: 'tx_sample_' + Date.now() + '_' + idx
+            }));
+            transactions = [...sample, ...transactions];
+            saveTransactions();
+            closeResetModal();
+            renderAll();
+            showToast('Đã thêm dữ liệu mẫu cho tháng đang chọn!');
+        }
+
+        function exportToCSV() {
+            const monthlyTx = getMonthlyTransactions();
+            const selectedMonth = document.getElementById('monthFilter').value;
+
+            if (monthlyTx.length === 0) {
+                showToast('Chưa có dữ liệu trong tháng này để xuất!');
+                return;
+            }
+
+            let csvContent = '\uFEFFNgày,Phân mục,Danh mục / Hình thức,Nội dung chính,Ghi chú chi tiết,Số tiền (VNĐ)\n';
+            const typeLabels = { expense: 'Khoản Chi', income: 'Khoản Thu', saving: 'Tiết Kiệm' };
+
+            monthlyTx.forEach(tx => {
+                const row = [
+                    tx.date,
+                    typeLabels[tx.type] || tx.type,
+                    `"${tx.category.replace(/"/g, '""')}"`,
+                    `"${tx.title.replace(/"/g, '""')}"`,
+                    `"${(tx.note || '').replace(/"/g, '""')}"`,
+                    tx.amount
+                ].join(',');
+                csvContent += row + '\n';
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `So_Thu_Chi_Tiet_Kiem_${selectedMonth}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast(`Đã tải file So_Thu_Chi_Tiet_Kiem_${selectedMonth}.csv`);
+        }
+    </script>
+</body>
+</html>
